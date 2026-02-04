@@ -57,6 +57,54 @@ NEWS_SOURCES: list[NewsSource] = [
         url="https://finance.yahoo.co.jp/rss/news",
         category="マーケット",
     ),
+
+    # =========================================================================
+    # 九州ニュース
+    # =========================================================================
+    NewsSource(
+        name="NHK福岡 - 九州沖縄",
+        url="https://www.nhk.or.jp/rss/news/cat7.xml",
+        category="九州",
+    ),
+    NewsSource(
+        name="西日本新聞",
+        url="https://www.nishinippon.co.jp/feed/",
+        category="九州",
+    ),
+    NewsSource(
+        name="RKB毎日放送",
+        url="https://rkb.jp/news/rss.xml",
+        category="九州",
+    ),
+    NewsSource(
+        name="KBC九州朝日放送",
+        url="https://kbc.co.jp/news/rss.xml",
+        category="九州",
+    ),
+    NewsSource(
+        name="テレQ（TVQ九州放送）",
+        url="https://www.tvq.co.jp/rss/news.xml",
+        category="九州",
+    ),
+    # --- 各県のニュース（必要に応じて有効化） ---
+    # NewsSource(
+    #     name="熊本日日新聞",
+    #     url="https://kumanichi.com/rss/index.xml",
+    #     category="九州",
+    #     enabled=False,
+    # ),
+    # NewsSource(
+    #     name="南日本新聞（鹿児島）",
+    #     url="https://373news.com/rss/",
+    #     category="九州",
+    #     enabled=False,
+    # ),
+    # NewsSource(
+    #     name="大分合同新聞",
+    #     url="https://www.oita-press.co.jp/rss/",
+    #     category="九州",
+    #     enabled=False,
+    # ),
 ]
 
 # 経済指標API設定（無料のAPIを使用）
