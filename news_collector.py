@@ -5,7 +5,7 @@ RSSフィードからニュースを収集し、経済指標データを取得�
 """
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import feedparser
@@ -16,6 +16,7 @@ from config import (
     MARKET_DATA_CONFIG,
     MAX_NEWS_PER_SOURCE,
     NEWS_SOURCES,
+    TIME_FILTER_CONFIG,
     WATCH_KEYWORDS,
     NewsSource,
 )
@@ -59,10 +60,55 @@ class NewsCollector:
         sources: list[NewsSource] = None,
         keywords: list[str] = None,
         keyword_config: dict = None,
+        time_filter_config: dict = None,
     ):
         self.sources = sources or NEWS_SOURCES
         self.keywords = keywords or WATCH_KEYWORDS
         self.keyword_config = keyword_config or KEYWORD_CONFIG
+        self.time_filter_config = time_filter_config or TIME_FILTER_CONFIG
+
+    def get_time_range(self) -> tuple[datetime, datetime]:
+        """
+        フィルタリング用の時間範囲を取得
+
+        Returns:
+            (start_time, end_time): 前日の基準時刻から当日の基準時刻-1分まで
+        """
+        base_time_str = self.time_filter_config.get("base_time", "06:30")
+        hour, minute = map(int, base_time_str.split(":"))
+
+        now = datetime.now()
+        # 当日の基準時刻（終了時刻は1分前）
+        end_time = now.replace(hour=hour, minute=minute - 1, second=59, microsecond=0)
+        # 前日の基準時刻（開始時刻）
+        start_time = end_time - timedelta(days=1) + timedelta(minutes=1)
+
+        # 現在時刻が基準時刻より前の場合は、さらに1日前にずらす
+        if now < now.replace(hour=hour, minute=minute, second=0, microsecond=0):
+            end_time -= timedelta(days=1)
+            start_time -= timedelta(days=1)
+
+        return start_time, end_time
+
+    def is_within_time_range(self, item: NewsItem) -> bool:
+        """
+        ニュースが指定された時間範囲内かチェック
+
+        Args:
+            item: チェックするニュースアイテム
+
+        Returns:
+            時間範囲内ならTrue
+        """
+        if not self.time_filter_config.get("enabled", True):
+            return True
+
+        if item.published is None:
+            # 公開日時がない場合の処理
+            return self.time_filter_config.get("include_no_date", True)
+
+        start_time, end_time = self.get_time_range()
+        return start_time <= item.published <= end_time
 
     def match_keywords(self, item: NewsItem) -> list[str]:
         """ニュースアイテムにキーワードがマッチするかチェック"""
@@ -126,12 +172,23 @@ class NewsCollector:
         news_by_category: dict[str, list[NewsItem]] = {}
         watched_news: list[NewsItem] = []
 
+        # 時間フィルタリングが有効な場合、範囲をログに出力
+        if self.time_filter_config.get("enabled", True):
+            start_time, end_time = self.get_time_range()
+            logger.info(f"Time filter: {start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}")
+
         for source in self.sources:
             if not source.enabled:
                 continue
 
             items = self.fetch_rss_feed(source)
+            filtered_count = 0
             for item in items:
+                # 時間フィルタリング
+                if not self.is_within_time_range(item):
+                    filtered_count += 1
+                    continue
+
                 # キーワードマッチング
                 item.matched_keywords = self.match_keywords(item)
 
@@ -142,6 +199,9 @@ class NewsCollector:
                 # 注目キーワードにマッチした場合は注目ニュースにも追加
                 if item.matched_keywords:
                     watched_news.append(item)
+
+            if filtered_count > 0:
+                logger.info(f"Filtered out {filtered_count} old items from {source.name}")
 
         # 注目ニュースがあれば先頭に追加
         if watched_news and self.keyword_config.get("prioritize_matched", True):
