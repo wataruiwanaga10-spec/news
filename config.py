@@ -86,6 +86,24 @@ NEWS_SOURCES: list[NewsSource] = [
         url="https://www.tvq.co.jp/rss/news.xml",
         category="九州",
     ),
+
+    # --- 佐賀県 ---
+    NewsSource(
+        name="佐賀新聞",
+        url="https://www.saga-s.co.jp/rss/news.xml",
+        category="佐賀",
+    ),
+    NewsSource(
+        name="サガテレビ（STS）",
+        url="https://www.sagatv.co.jp/rss/news.xml",
+        category="佐賀",
+    ),
+    NewsSource(
+        name="NHK佐賀",
+        url="https://www.nhk.or.jp/lnews/saga/index.rdf",
+        category="佐賀",
+    ),
+
     # --- 各県のニュース（必要に応じて有効化） ---
     # NewsSource(
     #     name="熊本日日新聞",
