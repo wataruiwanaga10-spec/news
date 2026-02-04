@@ -59,70 +59,47 @@ NEWS_SOURCES: list[NewsSource] = [
     ),
 
     # =========================================================================
-    # 九州ニュース
+    # 九州・福岡ニュース
     # =========================================================================
     NewsSource(
-        name="NHK福岡 - 九州沖縄",
-        url="https://www.nhk.or.jp/rss/news/cat7.xml",
+        name="NHK福岡",
+        url="https://www3.nhk.or.jp/lnews/fukuoka/index.rdf",
+        category="福岡",
+    ),
+    NewsSource(
+        name="西日本新聞 - 全国",
+        url="https://www.nishinippon.co.jp/rss/national.xml",
         category="九州",
     ),
     NewsSource(
-        name="西日本新聞",
-        url="https://www.nishinippon.co.jp/feed/",
-        category="九州",
+        name="西日本新聞 - 福岡",
+        url="https://www.nishinippon.co.jp/rss/fukuoka.xml",
+        category="福岡",
     ),
     NewsSource(
         name="RKB毎日放送",
         url="https://rkb.jp/news/rss.xml",
-        category="九州",
-    ),
-    NewsSource(
-        name="KBC九州朝日放送",
-        url="https://kbc.co.jp/news/rss.xml",
-        category="九州",
-    ),
-    NewsSource(
-        name="テレQ（TVQ九州放送）",
-        url="https://www.tvq.co.jp/rss/news.xml",
-        category="九州",
+        category="福岡",
     ),
 
-    # --- 佐賀県 ---
-    NewsSource(
-        name="佐賀新聞",
-        url="https://www.saga-s.co.jp/rss/news.xml",
-        category="佐賀",
-    ),
-    NewsSource(
-        name="サガテレビ（STS）",
-        url="https://www.sagatv.co.jp/rss/news.xml",
-        category="佐賀",
-    ),
+    # =========================================================================
+    # 佐賀県ニュース
+    # =========================================================================
     NewsSource(
         name="NHK佐賀",
-        url="https://www.nhk.or.jp/lnews/saga/index.rdf",
+        url="https://www3.nhk.or.jp/lnews/saga/index.rdf",
         category="佐賀",
     ),
-
-    # --- 各県のニュース（必要に応じて有効化） ---
-    # NewsSource(
-    #     name="熊本日日新聞",
-    #     url="https://kumanichi.com/rss/index.xml",
-    #     category="九州",
-    #     enabled=False,
-    # ),
-    # NewsSource(
-    #     name="南日本新聞（鹿児島）",
-    #     url="https://373news.com/rss/",
-    #     category="九州",
-    #     enabled=False,
-    # ),
-    # NewsSource(
-    #     name="大分合同新聞",
-    #     url="https://www.oita-press.co.jp/rss/",
-    #     category="九州",
-    #     enabled=False,
-    # ),
+    NewsSource(
+        name="佐賀新聞 - 全国",
+        url="https://www.saga-s.co.jp/rss/all.xml",
+        category="佐賀",
+    ),
+    NewsSource(
+        name="佐賀新聞 - 佐賀",
+        url="https://www.saga-s.co.jp/rss/saga.xml",
+        category="佐賀",
+    ),
 ]
 
 # 経済指標API設定（無料のAPIを使用）
