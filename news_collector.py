@@ -12,9 +12,11 @@ import feedparser
 import yfinance as yf
 
 from config import (
+    KEYWORD_CONFIG,
     MARKET_DATA_CONFIG,
     MAX_NEWS_PER_SOURCE,
     NEWS_SOURCES,
+    WATCH_KEYWORDS,
     NewsSource,
 )
 
@@ -31,6 +33,11 @@ class NewsItem:
     category: str
     published: Optional[datetime] = None
     summary: Optional[str] = None
+    matched_keywords: list[str] = None  # マッチしたキーワード
+
+    def __post_init__(self):
+        if self.matched_keywords is None:
+            self.matched_keywords = []
 
 
 @dataclass
@@ -47,8 +54,34 @@ class MarketData:
 class NewsCollector:
     """ニュース収集クラス"""
 
-    def __init__(self, sources: list[NewsSource] = None):
+    def __init__(
+        self,
+        sources: list[NewsSource] = None,
+        keywords: list[str] = None,
+        keyword_config: dict = None,
+    ):
         self.sources = sources or NEWS_SOURCES
+        self.keywords = keywords or WATCH_KEYWORDS
+        self.keyword_config = keyword_config or KEYWORD_CONFIG
+
+    def match_keywords(self, item: NewsItem) -> list[str]:
+        """ニュースアイテムにキーワードがマッチするかチェック"""
+        matched = []
+        text = f"{item.title} {item.summary or ''}".lower()
+
+        for keyword in self.keywords:
+            keyword_lower = keyword.lower()
+            if self.keyword_config.get("partial_match", True):
+                # 部分一致
+                if keyword_lower in text:
+                    matched.append(keyword)
+            else:
+                # 完全一致（単語境界）
+                import re
+                if re.search(rf'\b{re.escape(keyword_lower)}\b', text):
+                    matched.append(keyword)
+
+        return matched
 
     def fetch_rss_feed(self, source: NewsSource) -> list[NewsItem]:
         """RSSフィードからニュースを取得"""
@@ -91,6 +124,7 @@ class NewsCollector:
     def collect_all_news(self) -> dict[str, list[NewsItem]]:
         """全ソースからニュースを収集"""
         news_by_category: dict[str, list[NewsItem]] = {}
+        watched_news: list[NewsItem] = []
 
         for source in self.sources:
             if not source.enabled:
@@ -98,9 +132,20 @@ class NewsCollector:
 
             items = self.fetch_rss_feed(source)
             for item in items:
+                # キーワードマッチング
+                item.matched_keywords = self.match_keywords(item)
+
                 if item.category not in news_by_category:
                     news_by_category[item.category] = []
                 news_by_category[item.category].append(item)
+
+                # 注目キーワードにマッチした場合は注目ニュースにも追加
+                if item.matched_keywords:
+                    watched_news.append(item)
+
+        # 注目ニュースがあれば先頭に追加
+        if watched_news and self.keyword_config.get("prioritize_matched", True):
+            news_by_category = {"注目": watched_news, **news_by_category}
 
         return news_by_category
 
@@ -208,14 +253,28 @@ def format_news(news_by_category: dict[str, list[NewsItem]]) -> str:
     """ニュースをテキスト形式でフォーマット"""
     lines = []
 
-    for category, items in sorted(news_by_category.items()):
+    # 注目ニュースを先頭に表示するため、カテゴリをソート
+    categories = list(news_by_category.keys())
+    if "注目" in categories:
+        categories.remove("注目")
+        categories = ["注目"] + sorted(categories)
+    else:
+        categories = sorted(categories)
+
+    for category in categories:
+        items = news_by_category[category]
         lines.append("")
         lines.append("=" * 50)
-        lines.append(f"{category}ニュース")
+        if category == "注目":
+            lines.append("★ 注目ニュース ★")
+        else:
+            lines.append(f"{category}ニュース")
         lines.append("=" * 50)
 
         for item in items:
             lines.append(f"\n■ {item.title}")
+            if item.matched_keywords:
+                lines.append(f"  【キーワード: {', '.join(item.matched_keywords)}】")
             lines.append(f"  出典: {item.source}")
             if item.published:
                 lines.append(f"  日時: {item.published.strftime('%Y-%m-%d %H:%M')}")
