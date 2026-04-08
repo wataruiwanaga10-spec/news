@@ -59,6 +59,8 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
 .li-sub{color:#999;font-size:10px;white-space:nowrap;}
 .btn-x{background:none;border:none;cursor:pointer;color:#dc3545;font-size:15px;line-height:1;padding:0 2px;flex-shrink:0;}
 .btn-x:hover{color:#900;}
+.btn-edit-sm{background:none;border:none;cursor:pointer;color:#0d6efd;font-size:13px;line-height:1;padding:0 2px;flex-shrink:0;}
+.btn-edit-sm:hover{color:#0a58ca;}
 
 /* Graph area */
 .graph-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
@@ -74,7 +76,11 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
 .info-panel td{padding:3px 3px;vertical-align:top;}
 .info-panel td:first-child{font-weight:bold;color:#666;width:75px;font-size:11px;white-space:nowrap;}
 .btn-close{position:absolute;top:7px;right:9px;background:none;border:none;cursor:pointer;font-size:15px;color:#999;}
-.btn-del-node{margin-top:8px;padding:3px 9px;background:#dc3545;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;}
+.btn-del-node{padding:3px 9px;background:#dc3545;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;}
+.btn-edit-node{padding:3px 9px;background:#0d6efd;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;}
+.btn-cancel{width:100%;padding:6px;background:#6c757d;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;margin-top:4px;}
+.btn-cancel:hover{background:#5a6268;}
+.editing-banner{background:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:6px 8px;font-size:11px;color:#856404;margin-bottom:8px;display:none;}
 .badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;}
 .badge-strong{background:#d4edda;color:#155724;}
 .badge-medium{background:#fff3cd;color:#856404;}
@@ -127,6 +133,7 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
 
       <!-- Node form -->
       <div id="form-node">
+        <div class="editing-banner" id="nodeEditBanner">✏️ 編集モード — 内容を変更して「更新する」を押してください</div>
         <div class="form-group">
           <label>種別</label>
           <select id="nType" onchange="onTypeChange()">
@@ -185,11 +192,13 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
           <label>備考</label>
           <textarea id="nNotes" placeholder="メモ・特記事項"></textarea>
         </div>
-        <button class="btn-add" onclick="addNode()">＋ 追加する</button>
+        <button class="btn-add" id="btnAddNode" onclick="addNode()">＋ 追加する</button>
+        <button class="btn-cancel" id="btnCancelNode" onclick="cancelNodeEdit()" style="display:none">キャンセル</button>
       </div>
 
       <!-- Edge form -->
       <div id="form-edge" style="display:none">
+        <div class="editing-banner" id="edgeEditBanner">✏️ 編集モード — 内容を変更して「更新する」を押してください</div>
         <div class="form-group">
           <label>関係元 <span style="color:red">*</span></label>
           <select id="eSrc"></select>
@@ -215,7 +224,8 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
           <label>ラベル（任意）</label>
           <input id="eLabel" type="text" placeholder="例: 60%, 義兄弟, 元同僚">
         </div>
-        <button class="btn-add" onclick="addEdge()">＋ 関係を追加する</button>
+        <button class="btn-add" id="btnAddEdge" onclick="addEdge()">＋ 関係を追加する</button>
+        <button class="btn-cancel" id="btnCancelEdge" onclick="cancelEdgeEdit()" style="display:none">キャンセル</button>
       </div>
 
       <!-- Lists -->
@@ -244,7 +254,10 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
       <button class="btn-close" onclick="closeInfo()">✕</button>
       <h4 id="ipTitle"></h4>
       <table id="ipTable"></table>
-      <button class="btn-del-node" onclick="deleteSelectedNode()">削除</button>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <button class="btn-del-node" onclick="deleteSelectedNode()">削除</button>
+        <button class="btn-edit-node" onclick="editNode(state.selId)">編集</button>
+      </div>
     </div>
     <div class="legend">
       <b>種別:</b>
@@ -268,6 +281,8 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
 let state = { nodes: [], edges: [], selId: null };
 let nId = 1, eId = 1;
 let cy;
+let editingNodeId = null;
+let editingEdgeId = null;
 
 // ===== Edge type label map =====
 const ET_LABELS = {
@@ -381,11 +396,31 @@ function onTypeChange() {
 }
 onTypeChange();
 
-// ===== Add Node =====
+// ===== Add / Update Node =====
 function addNode() {
   const name = document.getElementById('nName').value.trim();
   if (!name) { alert('名前を入力してください。'); return; }
   const type = document.getElementById('nType').value;
+
+  if (editingNodeId) {
+    // --- Update existing node ---
+    const n = state.nodes.find(x => x.id === editingNodeId);
+    if (n) {
+      n.type = type; n.name = name;
+      n.role = v('nRole'); n.dept = v('nDept');
+      n.shareCnt = v('nShareCnt'); n.sharePct = v('nSharePct');
+      n.bankStaff = v('nBankStaff'); n.bankStr = v('nBankStr'); n.bankStat = v('nBankStat');
+      n.notes = v('nNotes');
+      const cyNode = cy.getElementById(editingNodeId);
+      cyNode.data('label', nodeLabel(n));
+      cyNode.data('type', type);
+    }
+    cancelNodeEdit();
+    renderLists();
+    return;
+  }
+
+  // --- Add new node ---
   const id = 'n' + (nId++);
   const ang = (state.nodes.length * 55) * Math.PI / 180;
   const rad = 160 + Math.floor(state.nodes.length / 7) * 120;
@@ -404,6 +439,36 @@ function addNode() {
   clearNForm();
 }
 
+function editNode(id) {
+  const n = state.nodes.find(x => x.id === id);
+  if (!n) return;
+  editingNodeId = id;
+  switchTab('node');
+  document.getElementById('nType').value = n.type;
+  onTypeChange();
+  document.getElementById('nName').value = n.name;
+  document.getElementById('nRole').value = n.role || '';
+  document.getElementById('nDept').value = n.dept || '';
+  document.getElementById('nShareCnt').value = n.shareCnt || '';
+  document.getElementById('nSharePct').value = n.sharePct || '';
+  document.getElementById('nBankStaff').value = n.bankStaff || '';
+  document.getElementById('nBankStr').value = n.bankStr || '';
+  document.getElementById('nBankStat').value = n.bankStat || '';
+  document.getElementById('nNotes').value = n.notes || '';
+  document.getElementById('btnAddNode').textContent = '✏️ 更新する';
+  document.getElementById('btnCancelNode').style.display = 'block';
+  document.getElementById('nodeEditBanner').style.display = 'block';
+  closeInfo();
+}
+
+function cancelNodeEdit() {
+  editingNodeId = null;
+  clearNForm();
+  document.getElementById('btnAddNode').textContent = '＋ 追加する';
+  document.getElementById('btnCancelNode').style.display = 'none';
+  document.getElementById('nodeEditBanner').style.display = 'none';
+}
+
 function v(id) { return document.getElementById(id).value.trim(); }
 
 function nodeLabel(n) {
@@ -412,20 +477,60 @@ function nodeLabel(n) {
   return n.name;
 }
 
-// ===== Add Edge =====
+// ===== Add / Update Edge =====
 function addEdge() {
   const src = document.getElementById('eSrc').value;
   const tgt = document.getElementById('eTgt').value;
   if (!src || !tgt) { alert('関係元と関係先を選択してください。'); return; }
   if (src === tgt) { alert('同じ項目は選択できません。'); return; }
-  const id = 'e' + (eId++);
   const type = document.getElementById('eType').value;
   const label = v('eLabel');
+
+  if (editingEdgeId) {
+    // --- Update existing edge ---
+    const e = state.edges.find(x => x.id === editingEdgeId);
+    if (e) {
+      e.src = src; e.tgt = tgt; e.type = type; e.label = label;
+      cy.getElementById(editingEdgeId).remove();
+      cy.add({ group: 'edges', data: { id: editingEdgeId, source: src, target: tgt, type, label: edgeCyLabel(type, label) } });
+    }
+    cancelEdgeEdit();
+    renderLists();
+    return;
+  }
+
+  // --- Add new edge ---
+  const id = 'e' + (eId++);
   const e = { id, src, tgt, type, label };
   state.edges.push(e);
   cy.add({ group: 'edges', data: { id, source: src, target: tgt, type, label: edgeCyLabel(type, label) } });
   renderLists();
   document.getElementById('eLabel').value = '';
+}
+
+function editEdge(id) {
+  const e = state.edges.find(x => x.id === id);
+  if (!e) return;
+  editingEdgeId = id;
+  switchTab('edge');
+  refreshEdgeSels();
+  document.getElementById('eSrc').value = e.src;
+  document.getElementById('eTgt').value = e.tgt;
+  document.getElementById('eType').value = e.type;
+  document.getElementById('eLabel').value = e.label || '';
+  document.getElementById('btnAddEdge').textContent = '✏️ 更新する';
+  document.getElementById('btnCancelEdge').style.display = 'block';
+  document.getElementById('edgeEditBanner').style.display = 'block';
+}
+
+function cancelEdgeEdit() {
+  editingEdgeId = null;
+  document.getElementById('eSrc').value = '';
+  document.getElementById('eTgt').value = '';
+  document.getElementById('eLabel').value = '';
+  document.getElementById('btnAddEdge').textContent = '＋ 関係を追加する';
+  document.getElementById('btnCancelEdge').style.display = 'none';
+  document.getElementById('edgeEditBanner').style.display = 'none';
 }
 
 // ===== Delete =====
@@ -508,6 +613,7 @@ function renderLists() {
     return `<div class="list-item">
       <span class="li-name">${esc(sn)} → ${esc(tn)}</span>
       <span class="li-sub">${etL[e.type] || ''}${e.label ? ' ' + esc(e.label) : ''}</span>
+      <button class="btn-edit-sm" onclick="editEdge('${e.id}')" title="編集">✏</button>
       <button class="btn-x" onclick="deleteEdge('${e.id}')" title="削除">✕</button>
     </div>`;
   }).join('');
@@ -591,32 +697,66 @@ function exportPNG() {
 }
 
 // ===== Export PDF =====
+// jsPDF はデフォルトで日本語フォントを持たないため、
+// Canvas API（OSのフォントを使用）でヘッダーを描画してから PDF に埋め込む
 function exportPDF() {
   if (!cy.elements().length) { alert('グラフが空です。'); return; }
   if (typeof window.jspdf === 'undefined') { alert('PDF出力ライブラリが読み込まれていません。インターネット接続を確認してください。'); return; }
-  const { jsPDF } = window.jspdf;
+
   const cn = document.getElementById('companyName').value || 'ステークホルダー関係図';
   const dateStr = new Date().toLocaleDateString('ja-JP');
-  const b64 = cy.png({ output: 'base64uri', scale: 2, bg: 'white', full: true });
-  const img = new Image();
-  img.onload = function() {
-    const iw = img.naturalWidth, ih = img.naturalHeight;
+  const cyB64 = cy.png({ output: 'base64uri', scale: 2, bg: 'white', full: true });
+
+  const graphImg = new Image();
+  graphImg.onload = function() {
+    const gW = graphImg.naturalWidth;
+    const gH = graphImg.naturalHeight;
+    const HDR = Math.max(60, Math.round(gW * 0.048)); // ヘッダー高さ
+
+    // Canvas でヘッダー付き画像を作成（Canvas は OS フォントで日本語描画可能）
+    const canvas = document.createElement('canvas');
+    canvas.width = gW;
+    canvas.height = gH + HDR;
+    const ctx = canvas.getContext('2d');
+
+    // ヘッダー背景
+    ctx.fillStyle = '#1a3a6a';
+    ctx.fillRect(0, 0, gW, HDR);
+
+    // ヘッダーテキスト
+    const fs = Math.round(HDR * 0.44);
+    const y = HDR * 0.66;
+    ctx.fillStyle = 'white';
+    ctx.font = `bold ${fs}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
+    ctx.fillText('佐賀銀行 ステークホルダー関係図', 24, y);
+
+    // 法人名（中央）
+    ctx.font = `bold ${Math.round(fs * 0.88)}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
+    const cnW = ctx.measureText(cn).width;
+    ctx.fillText(cn, (gW - cnW) / 2, y);
+
+    // 日付（右寄せ）
+    ctx.font = `${Math.round(fs * 0.75)}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
+    const dW2 = ctx.measureText(dateStr).width;
+    ctx.fillText(dateStr, gW - dW2 - 24, y);
+
+    // グラフ画像を下に貼付
+    ctx.drawImage(graphImg, 0, HDR);
+
+    // PDF に埋め込み（A4 横）
+    const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pW = 297, pH = 210, mg = 10, hh = 13;
-    pdf.setFillColor(26, 58, 106);
-    pdf.rect(0, 0, pW, hh, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(11);
-    pdf.text('佐賀銀行 - ステークホルダー関係図', mg, 8.5);
-    pdf.text(cn, pW / 2, 8.5, { align: 'center' });
-    pdf.text(dateStr, pW - mg, 8.5, { align: 'right' });
-    const avW = pW - mg * 2, avH = pH - hh - mg * 2;
-    const ratio = Math.min(avW / iw, avH / ih);
-    const dW = iw * ratio, dH = ih * ratio;
-    pdf.addImage(b64, 'PNG', mg + (avW - dW) / 2, hh + mg, dW, dH);
-    pdf.save(cn.replace(/[^\w\u3040-\u9fff]/g,'_') + '_関係図_' + dateStr.replace(/\//g,'-') + '.pdf');
+    const pW = 297, pH = 210, mg = 8;
+    const avW = pW - mg * 2, avH = pH - mg * 2;
+    const ratio = Math.min(avW / canvas.width, avH / canvas.height);
+    const dW = canvas.width * ratio, dH = canvas.height * ratio;
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG',
+      mg + (avW - dW) / 2, mg + (avH - dH) / 2, dW, dH);
+
+    const safeName = cn.replace(/[^\w\u3040-\u9fff\u30a0-\u30ff\u4e00-\u9fff]/g, '_');
+    pdf.save(safeName + '_関係図_' + dateStr.replace(/\//g, '-') + '.pdf');
   };
-  img.src = b64;
+  graphImg.src = cyB64;
 }
 
 // ===== Boot =====
