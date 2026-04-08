@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ステークホルダー関係図 | 佐賀銀行</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Meiryo','Segoe UI',sans-serif;font-size:14px;background:#f0f4f8;color:#333;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* Header */
+header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(0,0,0,0.3);flex-shrink:0;}
+.logo-block{display:flex;flex-direction:column;align-items:center;margin-right:6px;}
+.logo-text{font-size:11px;font-weight:bold;color:#a0c4e8;white-space:nowrap;}
+.logo-line{width:44px;height:2px;background:#a0c4e8;margin-top:2px;}
+.header-title{font-size:16px;font-weight:bold;flex:1;}
+.company-input-wrap{display:flex;align-items:center;gap:6px;}
+.company-input-wrap label{font-size:11px;color:#a0c4e8;white-space:nowrap;}
+.company-input-wrap input{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:white;padding:4px 8px;border-radius:4px;font-size:13px;width:180px;}
+.company-input-wrap input::placeholder{color:rgba(255,255,255,0.5);}
+.toolbar-btns{display:flex;gap:5px;flex-shrink:0;}
+.btn{padding:5px 11px;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;transition:opacity 0.15s;}
+.btn:hover{opacity:0.82;}
+.btn-new{background:#6c757d;color:white;}
+.btn-save{background:#198754;color:white;}
+.btn-load{background:#0d6efd;color:white;}
+.btn-png{background:#fd7e14;color:white;}
+.btn-pdf{background:#dc3545;color:white;}
+
+/* Main */
+.main{display:flex;flex:1;overflow:hidden;}
+
+/* Sidebar */
+.sidebar{width:310px;flex-shrink:0;background:white;border-right:1px solid #dee2e6;display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-scroll{overflow-y:auto;flex:1;padding:10px;}
+.tabs{display:flex;border-bottom:2px solid #dee2e6;margin-bottom:10px;}
+.tab{padding:7px 14px;cursor:pointer;font-weight:bold;font-size:13px;border-bottom:3px solid transparent;margin-bottom:-2px;color:#666;}
+.tab.active{border-bottom-color:#0a2a4a;color:#0a2a4a;}
+.form-group{margin-bottom:9px;}
+.form-group label{display:block;font-size:11px;font-weight:bold;color:#555;margin-bottom:3px;}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:5px 7px;border:1px solid #ced4da;border-radius:4px;font-size:13px;font-family:inherit;}
+.form-group textarea{resize:vertical;height:54px;}
+.form-section{background:#f0f4f8;border-left:3px solid #1a4a7a;padding:5px 9px;margin:10px 0 7px;font-size:11px;font-weight:bold;color:#1a4a7a;}
+.field-group{display:none;}
+.field-group.show{display:block;}
+.btn-add{width:100%;padding:8px;background:#0a2a4a;color:white;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:bold;margin-top:6px;}
+.btn-add:hover{background:#1a4a7a;}
+.list-sep{border-top:1px solid #dee2e6;padding-top:10px;margin-top:10px;}
+.list-sep h3{font-size:11px;color:#777;margin-bottom:7px;}
+.list-item{display:flex;align-items:center;padding:5px 7px;border:1px solid #e9ecef;border-radius:4px;margin-bottom:3px;gap:5px;font-size:12px;cursor:pointer;}
+.list-item:hover{background:#f8f9fa;}
+.li-icon{width:16px;height:16px;flex-shrink:0;border-radius:2px;}
+.li-icon.company{background:#1a3a6a;border-radius:2px;}
+.li-icon.person{background:#2d6a4f;border-radius:50%;}
+.li-icon.shareholder{background:#b36b00;transform:rotate(45deg);width:13px;height:13px;}
+.li-name{flex:1;font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.li-sub{color:#999;font-size:10px;white-space:nowrap;}
+.btn-x{background:none;border:none;cursor:pointer;color:#dc3545;font-size:15px;line-height:1;padding:0 2px;flex-shrink:0;}
+.btn-x:hover{color:#900;}
+
+/* Graph area */
+.graph-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative;}
+.graph-toolbar{background:#f8f9fa;border-bottom:1px solid #dee2e6;padding:5px 10px;display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.graph-toolbar button{padding:4px 10px;border:1px solid #ced4da;background:white;border-radius:4px;cursor:pointer;font-size:12px;}
+.graph-toolbar button:hover{background:#e9ecef;}
+#cy{flex:1;background:#fafbfc;}
+
+/* Info panel */
+.info-panel{position:absolute;background:white;border:1px solid #dee2e6;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,0.15);padding:12px;min-width:210px;max-width:270px;display:none;z-index:100;font-size:12px;}
+.info-panel h4{font-size:13px;color:#0a2a4a;margin-bottom:8px;padding-right:20px;}
+.info-panel table{width:100%;border-collapse:collapse;}
+.info-panel td{padding:3px 3px;vertical-align:top;}
+.info-panel td:first-child{font-weight:bold;color:#666;width:75px;font-size:11px;white-space:nowrap;}
+.btn-close{position:absolute;top:7px;right:9px;background:none;border:none;cursor:pointer;font-size:15px;color:#999;}
+.btn-del-node{margin-top:8px;padding:3px 9px;background:#dc3545;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;}
+.badge{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:bold;}
+.badge-strong{background:#d4edda;color:#155724;}
+.badge-medium{background:#fff3cd;color:#856404;}
+.badge-weak{background:#f8d7da;color:#721c24;}
+
+/* Legend */
+.legend{background:white;border-top:1px solid #dee2e6;padding:5px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:11px;flex-shrink:0;}
+.legend b{color:#555;}
+.li-leg{display:flex;align-items:center;gap:4px;}
+.ln{width:14px;height:14px;display:inline-block;}
+.ln.company{background:#1a3a6a;border-radius:2px;}
+.ln.person{background:#2d6a4f;border-radius:50%;}
+.ln.shareholder{background:#b36b00;transform:rotate(45deg);width:11px;height:11px;}
+
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:#f1f1f1;}
+::-webkit-scrollbar-thumb{background:#bbb;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-block">
+    <span class="logo-text">佐賀銀行</span>
+    <div class="logo-line"></div>
+  </div>
+  <div class="header-title">ステークホルダー関係図</div>
+  <div class="company-input-wrap">
+    <label>法人名:</label>
+    <input id="companyName" type="text" placeholder="例: 株式会社サンプル">
+  </div>
+  <div class="toolbar-btns">
+    <button class="btn btn-new" onclick="newDiagram()">新規</button>
+    <button class="btn btn-save" onclick="saveJSON()">保存</button>
+    <button class="btn btn-load" onclick="document.getElementById('fileIn').click()">読込</button>
+    <input id="fileIn" type="file" accept=".json" style="display:none" onchange="loadJSON(event)">
+    <button class="btn btn-png" onclick="exportPNG()">PNG出力</button>
+    <button class="btn btn-pdf" onclick="exportPDF()">PDF出力</button>
+  </div>
+</header>
+
+<div class="main">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+      <div class="tabs">
+        <div class="tab active" id="tab-node" onclick="switchTab('node')">ノード追加</div>
+        <div class="tab" id="tab-edge" onclick="switchTab('edge')">エッジ追加</div>
+      </div>
+
+      <!-- Node form -->
+      <div id="form-node">
+        <div class="form-group">
+          <label>種別</label>
+          <select id="nType" onchange="onTypeChange()">
+            <option value="company">🏢 会社・法人</option>
+            <option value="person">👤 人物</option>
+            <option value="shareholder">💰 株主</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>名前 <span style="color:red">*</span></label>
+          <input id="nName" type="text" placeholder="氏名 / 会社名">
+        </div>
+        <div class="field-group" id="fg-person">
+          <div class="form-section">人物情報</div>
+          <div class="form-group">
+            <label>役職</label>
+            <input id="nRole" type="text" placeholder="例: 代表取締役社長">
+          </div>
+          <div class="form-group">
+            <label>部署</label>
+            <input id="nDept" type="text" placeholder="例: 営業部">
+          </div>
+        </div>
+        <div class="field-group" id="fg-share">
+          <div class="form-section">株主情報</div>
+          <div class="form-group">
+            <label>保有株数</label>
+            <input id="nShareCnt" type="number" placeholder="例: 10000">
+          </div>
+          <div class="form-group">
+            <label>持株比率 (%)</label>
+            <input id="nSharePct" type="number" step="0.1" min="0" max="100" placeholder="例: 25.5">
+          </div>
+        </div>
+        <div class="field-group" id="fg-bank">
+          <div class="form-section">銀行との接点</div>
+          <div class="form-group">
+            <label>銀行担当者</label>
+            <input id="nBankStaff" type="text" placeholder="例: 田中 太郎">
+          </div>
+          <div class="form-group">
+            <label>関係強度</label>
+            <select id="nBankStr">
+              <option value="">── 選択 ──</option>
+              <option value="strong">強（信頼関係あり）</option>
+              <option value="medium">中（普通）</option>
+              <option value="weak">弱（関係薄い）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>取引状況</label>
+            <input id="nBankStat" type="text" placeholder="例: メイン取引先">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>備考</label>
+          <textarea id="nNotes" placeholder="メモ・特記事項"></textarea>
+        </div>
+        <button class="btn-add" onclick="addNode()">＋ ノードを追加</button>
+      </div>
+
+      <!-- Edge form -->
+      <div id="form-edge" style="display:none">
+        <div class="form-group">
+          <label>関係元 <span style="color:red">*</span></label>
+          <select id="eSrc"></select>
+        </div>
+        <div class="form-group">
+          <label>関係先 <span style="color:red">*</span></label>
+          <select id="eTgt"></select>
+        </div>
+        <div class="form-group">
+          <label>関係種別 <span style="color:red">*</span></label>
+          <select id="eType">
+            <option value="ownership">📊 株主関係（株主→会社）</option>
+            <option value="group">🏢 グループ会社・親子関係</option>
+            <option value="superior">⬆ 上司→部下</option>
+            <option value="bank">🏦 銀行担当</option>
+            <option value="keyman">⭐ キーマン</option>
+            <option value="opponent">✕ 反対者・対立</option>
+            <option value="family">👨‍👩‍👧 家族・親族</option>
+            <option value="other">— その他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>ラベル（任意）</label>
+          <input id="eLabel" type="text" placeholder="例: 60%, 義兄弟, 元同僚">
+        </div>
+        <button class="btn-add" onclick="addEdge()">＋ エッジを追加</button>
+      </div>
+
+      <!-- Lists -->
+      <div class="list-sep">
+        <h3>ノード一覧（<span id="nCount">0</span>件）</h3>
+        <div id="nList"></div>
+      </div>
+      <div class="list-sep">
+        <h3>エッジ一覧（<span id="eCount">0</span>件）</h3>
+        <div id="eList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Graph -->
+  <div class="graph-wrap">
+    <div class="graph-toolbar">
+      <button onclick="autoLayout()">🔄 グラフ整列</button>
+      <button onclick="cy.fit(cy.elements(),50)">🔍 全体表示</button>
+      <button onclick="cy.zoom(cy.zoom()*1.25);cy.center()">＋ 拡大</button>
+      <button onclick="cy.zoom(cy.zoom()*0.8);cy.center()">－ 縮小</button>
+      <span style="margin-left:8px;font-size:11px;color:#888;">ノードはドラッグで移動できます</span>
+    </div>
+    <div id="cy"></div>
+    <div class="info-panel" id="infoPanel">
+      <button class="btn-close" onclick="closeInfo()">✕</button>
+      <h4 id="ipTitle"></h4>
+      <table id="ipTable"></table>
+      <button class="btn-del-node" onclick="deleteSelectedNode()">削除</button>
+    </div>
+    <div class="legend">
+      <b>ノード:</b>
+      <span class="li-leg"><span class="ln company"></span>会社・法人</span>
+      <span class="li-leg"><span class="ln person"></span>人物</span>
+      <span class="li-leg"><span class="ln shareholder"></span>株主</span>
+      <span style="color:#ccc">|</span>
+      <b>エッジ:</b>
+      <span class="li-leg"><span style="color:#b36b00;font-weight:bold">━▶</span>&nbsp;株主関係</span>
+      <span class="li-leg"><span style="color:#1a3a6a">┅┅</span>&nbsp;グループ</span>
+      <span class="li-leg"><span style="color:#555">━▶</span>&nbsp;上司/部下</span>
+      <span class="li-leg"><span style="color:#cc8800;font-weight:bold">━━</span>&nbsp;キーマン</span>
+      <span class="li-leg"><span style="color:#dc3545">╌╌</span>&nbsp;反対者</span>
+      <span class="li-leg"><span style="color:#c06090">──</span>&nbsp;家族</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== State =====
+let state = { nodes: [], edges: [], selId: null };
+let nId = 1, eId = 1;
+let cy;
+
+// ===== Init Cytoscape =====
+function initCy() {
+  cy = cytoscape({
+    container: document.getElementById('cy'),
+    elements: [],
+    style: cyStyle(),
+    layout: { name: 'preset' },
+    minZoom: 0.15, maxZoom: 4,
+    wheelSensitivity: 0.3
+  });
+  cy.on('tap', 'node', evt => showInfo(evt.target.id(), evt.target.renderedPosition()));
+  cy.on('tap', evt => { if (evt.target === cy) closeInfo(); });
+  cy.on('dragfree', 'node', evt => {
+    const p = evt.target.position();
+    const n = state.nodes.find(x => x.id === evt.target.id());
+    if (n) { n.x = p.x; n.y = p.y; }
+  });
+}
+
+function cyStyle() {
+  return [
+    { selector: 'node[type="company"]', style: {
+      shape: 'rectangle', 'background-color': '#1a3a6a', label: 'data(label)',
+      color: 'white', 'font-size': '13px', 'font-weight': 'bold',
+      'text-wrap': 'wrap', 'text-max-width': '120px',
+      width: 'label', height: 'label', 'min-width': '80px', 'min-height': '36px',
+      'text-valign': 'center', 'text-halign': 'center',
+      'padding': '10px', 'border-width': 2, 'border-color': '#0a2040'
+    }},
+    { selector: 'node[type="person"]', style: {
+      shape: 'ellipse', 'background-color': '#2d6a4f', label: 'data(label)',
+      color: 'white', 'font-size': '12px', 'font-weight': 'bold',
+      'text-wrap': 'wrap', 'text-max-width': '110px',
+      width: 'label', height: 'label', 'min-width': '80px', 'min-height': '50px',
+      'text-valign': 'center', 'text-halign': 'center',
+      'padding': '10px', 'border-width': 2, 'border-color': '#1b4332'
+    }},
+    { selector: 'node[type="shareholder"]', style: {
+      shape: 'diamond', 'background-color': '#b36b00', label: 'data(label)',
+      color: 'white', 'font-size': '12px', 'font-weight': 'bold',
+      'text-wrap': 'wrap', 'text-max-width': '100px',
+      width: 'label', height: 'label', 'min-width': '80px', 'min-height': '60px',
+      'text-valign': 'center', 'text-halign': 'center',
+      'padding': '14px', 'border-width': 2, 'border-color': '#7a4800'
+    }},
+    { selector: 'node:selected', style: {
+      'border-width': 4, 'border-color': '#ffd700',
+      'shadow-blur': 12, 'shadow-color': '#ffd700',
+      'shadow-opacity': 0.9, 'shadow-offset-x': 0, 'shadow-offset-y': 0
+    }},
+    edgeStyle('ownership', '#b36b00', 'solid', 'triangle', 2.5),
+    edgeStyle('group', '#1a3a6a', 'dashed', 'none', 2),
+    edgeStyle('superior', '#555555', 'solid', 'triangle', 1.5),
+    edgeStyle('bank', '#e07b00', 'dotted', 'none', 2),
+    { selector: 'edge[type="keyman"]', style: {
+      'line-color': '#cc8800', 'target-arrow-color': '#cc8800',
+      'target-arrow-shape': 'triangle', 'curve-style': 'bezier',
+      width: 4, label: 'data(label)', 'font-size': '11px', color: '#cc8800',
+      'font-weight': 'bold', 'text-background-color': 'white',
+      'text-background-opacity': 0.9, 'text-background-padding': '2px'
+    }},
+    { selector: 'edge[type="opponent"]', style: {
+      'line-color': '#dc3545', 'line-style': 'dashed', 'line-dash-pattern': [5, 4],
+      'target-arrow-color': '#dc3545', 'target-arrow-shape': 'tee',
+      'curve-style': 'bezier', width: 2, label: 'data(label)',
+      'font-size': '11px', color: '#dc3545',
+      'text-background-color': 'white', 'text-background-opacity': 0.9, 'text-background-padding': '2px'
+    }},
+    edgeStyle('family', '#c06090', 'solid', 'none', 2),
+    edgeStyle('other', '#888888', 'dashed', 'none', 1.5)
+  ];
+}
+
+function edgeStyle(type, color, lineStyle, arrow, w) {
+  return { selector: `edge[type="${type}"]`, style: {
+    'line-color': color, 'line-style': lineStyle,
+    'target-arrow-color': color, 'target-arrow-shape': arrow,
+    'curve-style': 'bezier', width: w, label: 'data(label)',
+    'font-size': '11px', color: color,
+    'text-background-color': 'white', 'text-background-opacity': 0.9, 'text-background-padding': '2px'
+  }};
+}
+
+// ===== Tab =====
+function switchTab(t) {
+  document.getElementById('tab-node').classList.toggle('active', t === 'node');
+  document.getElementById('tab-edge').classList.toggle('active', t === 'edge');
+  document.getElementById('form-node').style.display = t === 'node' ? 'block' : 'none';
+  document.getElementById('form-edge').style.display = t === 'edge' ? 'block' : 'none';
+  if (t === 'edge') refreshEdgeSels();
+}
+
+// ===== Node type change =====
+function onTypeChange() {
+  const t = document.getElementById('nType').value;
+  document.getElementById('fg-person').className = 'field-group' + (t === 'person' ? ' show' : '');
+  document.getElementById('fg-share').className = 'field-group' + (t === 'shareholder' ? ' show' : '');
+  document.getElementById('fg-bank').className = 'field-group' + (t !== 'company' ? ' show' : '');
+}
+onTypeChange();
+
+// ===== Add Node =====
+function addNode() {
+  const name = document.getElementById('nName').value.trim();
+  if (!name) { alert('名前を入力してください。'); return; }
+  const type = document.getElementById('nType').value;
+  const id = 'n' + (nId++);
+  const ang = (state.nodes.length * 55) * Math.PI / 180;
+  const rad = 160 + Math.floor(state.nodes.length / 7) * 120;
+  const n = {
+    id, type, name,
+    role: v('nRole'), dept: v('nDept'),
+    shareCnt: v('nShareCnt'), sharePct: v('nSharePct'),
+    bankStaff: v('nBankStaff'), bankStr: v('nBankStr'), bankStat: v('nBankStat'),
+    notes: v('nNotes'),
+    x: 350 + rad * Math.cos(ang),
+    y: 260 + rad * Math.sin(ang)
+  };
+  state.nodes.push(n);
+  cy.add({ group: 'nodes', data: { id, type, label: nodeLabel(n) }, position: { x: n.x, y: n.y } });
+  renderLists();
+  clearNForm();
+}
+
+function v(id) { return document.getElementById(id).value.trim(); }
+
+function nodeLabel(n) {
+  if (n.type === 'person') return n.name + (n.role ? '\n' + n.role : '');
+  if (n.type === 'shareholder') return n.name + (n.sharePct ? '\n(' + n.sharePct + '%)' : '');
+  return n.name;
+}
+
+// ===== Add Edge =====
+function addEdge() {
+  const src = document.getElementById('eSrc').value;
+  const tgt = document.getElementById('eTgt').value;
+  if (!src || !tgt) { alert('関係元と関係先を選択してください。'); return; }
+  if (src === tgt) { alert('同じノードは選択できません。'); return; }
+  const id = 'e' + (eId++);
+  const type = document.getElementById('eType').value;
+  const label = v('eLabel');
+  const e = { id, src, tgt, type, label };
+  state.edges.push(e);
+  cy.add({ group: 'edges', data: { id, source: src, target: tgt, type, label } });
+  renderLists();
+  document.getElementById('eLabel').value = '';
+}
+
+// ===== Delete =====
+function deleteNode(id) {
+  state.nodes = state.nodes.filter(n => n.id !== id);
+  state.edges = state.edges.filter(e => e.src !== id && e.tgt !== id);
+  cy.getElementById(id).remove();
+  renderLists();
+  if (state.selId === id) closeInfo();
+}
+
+function deleteEdge(id) {
+  state.edges = state.edges.filter(e => e.id !== id);
+  cy.getElementById(id).remove();
+  renderLists();
+}
+
+function deleteSelectedNode() { if (state.selId) deleteNode(state.selId); }
+
+// ===== Info Panel =====
+function showInfo(id, rPos) {
+  const n = state.nodes.find(x => x.id === id);
+  if (!n) return;
+  state.selId = id;
+  cy.getElementById(id).select();
+  const typeL = { company: '会社・法人', person: '人物', shareholder: '株主' };
+  const strL = { strong: '強', medium: '中', weak: '弱' };
+  document.getElementById('ipTitle').textContent = n.name;
+  let rows = `<tr><td>種別</td><td>${typeL[n.type]}</td></tr>`;
+  if (n.role) rows += `<tr><td>役職</td><td>${esc(n.role)}</td></tr>`;
+  if (n.dept) rows += `<tr><td>部署</td><td>${esc(n.dept)}</td></tr>`;
+  if (n.shareCnt) rows += `<tr><td>保有株数</td><td>${parseInt(n.shareCnt).toLocaleString()}株</td></tr>`;
+  if (n.sharePct) rows += `<tr><td>持株比率</td><td>${n.sharePct}%</td></tr>`;
+  if (n.bankStaff) rows += `<tr><td>銀行担当</td><td>${esc(n.bankStaff)}</td></tr>`;
+  if (n.bankStr) rows += `<tr><td>関係強度</td><td><span class="badge badge-${n.bankStr}">${strL[n.bankStr]}</span></td></tr>`;
+  if (n.bankStat) rows += `<tr><td>取引状況</td><td>${esc(n.bankStat)}</td></tr>`;
+  if (n.notes) rows += `<tr><td>備考</td><td style="white-space:pre-wrap">${esc(n.notes)}</td></tr>`;
+  document.getElementById('ipTable').innerHTML = rows;
+  const panel = document.getElementById('infoPanel');
+  panel.style.display = 'block';
+  const wrap = document.querySelector('.graph-wrap');
+  const wW = wrap.clientWidth, wH = wrap.clientHeight;
+  let left = rPos.x + 18, top = rPos.y + 18;
+  if (left + 275 > wW) left = rPos.x - 275 - 18;
+  if (top + 240 > wH) top = rPos.y - 240 - 18;
+  panel.style.left = Math.max(5, left) + 'px';
+  panel.style.top = Math.max(5, top) + 'px';
+}
+
+function closeInfo() {
+  document.getElementById('infoPanel').style.display = 'none';
+  state.selId = null;
+  cy.elements().unselect();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== Render Lists =====
+function renderLists() {
+  document.getElementById('nCount').textContent = state.nodes.length;
+  const nameMap = {};
+  state.nodes.forEach(n => nameMap[n.id] = n.name);
+  document.getElementById('nList').innerHTML = state.nodes.map(n => {
+    const sub = n.type === 'company' ? '会社' : n.type === 'person' ? (n.role || '人物') : '株主' + (n.sharePct ? ' ' + n.sharePct + '%' : '');
+    return `<div class="list-item" onclick="cy.getElementById('${n.id}').select();showInfo('${n.id}',cy.getElementById('${n.id}').renderedPosition())">
+      <span class="li-icon ${n.type}"></span>
+      <span class="li-name" title="${esc(n.name)}">${esc(n.name)}</span>
+      <span class="li-sub">${esc(sub)}</span>
+      <button class="btn-x" onclick="event.stopPropagation();deleteNode('${n.id}')" title="削除">✕</button>
+    </div>`;
+  }).join('');
+
+  const etL = { ownership:'株主', group:'グループ', superior:'上司/部下', bank:'銀行担当', keyman:'キーマン', opponent:'反対者', family:'家族', other:'その他' };
+  document.getElementById('eCount').textContent = state.edges.length;
+  document.getElementById('eList').innerHTML = state.edges.map(e => {
+    const sn = (nameMap[e.src] || '?').substring(0, 8);
+    const tn = (nameMap[e.tgt] || '?').substring(0, 8);
+    return `<div class="list-item">
+      <span class="li-name">${esc(sn)} → ${esc(tn)}</span>
+      <span class="li-sub">${etL[e.type] || ''}${e.label ? ' ' + esc(e.label) : ''}</span>
+      <button class="btn-x" onclick="deleteEdge('${e.id}')" title="削除">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function refreshEdgeSels() {
+  const opts = '<option value="">── 選択 ──</option>' +
+    state.nodes.map(n => `<option value="${n.id}">${esc(n.name)}${n.role ? ' ('+esc(n.role)+')' : ''}</option>`).join('');
+  document.getElementById('eSrc').innerHTML = opts;
+  document.getElementById('eTgt').innerHTML = opts;
+}
+
+function clearNForm() {
+  ['nName','nRole','nDept','nShareCnt','nSharePct','nBankStaff','nBankStat','nNotes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('nBankStr').value = '';
+}
+
+// ===== New / Save / Load =====
+function newDiagram() {
+  if (state.nodes.length > 0 && !confirm('新規作成すると現在のデータが失われます。よろしいですか？')) return;
+  state = { nodes: [], edges: [], selId: null };
+  nId = 1; eId = 1;
+  cy.elements().remove();
+  document.getElementById('companyName').value = '';
+  renderLists();
+  closeInfo();
+}
+
+function saveJSON() {
+  const cn = document.getElementById('companyName').value || '関係図';
+  const data = { version: 1, companyName: cn, nodes: state.nodes, edges: state.edges, nId, eId, savedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = cn + '_' + new Date().toLocaleDateString('ja-JP').replace(/\//g,'-') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function loadJSON(evt) {
+  const file = evt.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (state.nodes.length > 0 && !confirm('現在のデータを破棄して読み込みますか？')) return;
+      state.nodes = data.nodes || [];
+      state.edges = data.edges || [];
+      nId = data.nId || state.nodes.length + 1;
+      eId = data.eId || state.edges.length + 1;
+      document.getElementById('companyName').value = data.companyName || '';
+      cy.elements().remove();
+      state.nodes.forEach(n => cy.add({ group: 'nodes', data: { id: n.id, type: n.type, label: nodeLabel(n) }, position: { x: n.x, y: n.y } }));
+      state.edges.forEach(e => cy.add({ group: 'edges', data: { id: e.id, source: e.src, target: e.tgt, type: e.type, label: e.label || '' } }));
+      renderLists(); closeInfo();
+      cy.fit(cy.elements(), 50);
+    } catch(err) { alert('読み込みに失敗しました。\n' + err.message); }
+  };
+  reader.readAsText(file);
+  evt.target.value = '';
+}
+
+// ===== Layout =====
+function autoLayout() {
+  cy.layout({ name: 'cose', nodeRepulsion: () => 6000, idealEdgeLength: () => 150, animate: false, padding: 40 }).run();
+}
+
+// ===== Export PNG =====
+function exportPNG() {
+  if (!cy.elements().length) { alert('グラフが空です。'); return; }
+  const cn = document.getElementById('companyName').value || 'stakeholder';
+  const blob = cy.png({ output: 'blob', scale: 2, bg: 'white', full: true });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = cn + '_関係図_' + new Date().toLocaleDateString('ja-JP').replace(/\//g,'-') + '.png';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== Export PDF =====
+function exportPDF() {
+  if (!cy.elements().length) { alert('グラフが空です。'); return; }
+  if (typeof window.jspdf === 'undefined') { alert('PDF出力ライブラリが読み込まれていません。インターネット接続を確認してください。'); return; }
+  const { jsPDF } = window.jspdf;
+  const cn = document.getElementById('companyName').value || 'ステークホルダー関係図';
+  const dateStr = new Date().toLocaleDateString('ja-JP');
+  const b64 = cy.png({ output: 'base64uri', scale: 2, bg: 'white', full: true });
+  const img = new Image();
+  img.onload = function() {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pW = 297, pH = 210, mg = 10, hh = 13;
+    pdf.setFillColor(26, 58, 106);
+    pdf.rect(0, 0, pW, hh, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(11);
+    pdf.text('佐賀銀行 - ステークホルダー関係図', mg, 8.5);
+    pdf.text(cn, pW / 2, 8.5, { align: 'center' });
+    pdf.text(dateStr, pW - mg, 8.5, { align: 'right' });
+    const avW = pW - mg * 2, avH = pH - hh - mg * 2;
+    const ratio = Math.min(avW / iw, avH / ih);
+    const dW = iw * ratio, dH = ih * ratio;
+    pdf.addImage(b64, 'PNG', mg + (avW - dW) / 2, hh + mg, dW, dH);
+    pdf.save(cn.replace(/[^\w\u3040-\u9fff]/g,'_') + '_関係図_' + dateStr.replace(/\//g,'-') + '.pdf');
+  };
+  img.src = b64;
+}
+
+// ===== Boot =====
+initCy();
+renderLists();
+</script>
+</body>
+</html>
