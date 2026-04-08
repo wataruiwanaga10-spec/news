@@ -87,8 +87,8 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
 .badge-weak{background:#f8d7da;color:#721c24;}
 
 /* Legend */
-.legend{background:white;border-top:1px solid #dee2e6;padding:5px 12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:11px;flex-shrink:0;}
-.legend b{color:#555;}
+.legend{background:white;border-top:1px solid #dee2e6;padding:4px 12px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:11px;overflow-y:auto;max-height:64px;}
+.legend b{color:#555;white-space:nowrap;}
 .li-leg{display:flex;align-items:center;gap:4px;}
 .ln{width:14px;height:14px;display:inline-block;}
 .ln.company{background:#1a3a6a;border-radius:2px;}
@@ -156,6 +156,14 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
             <label>部署</label>
             <input id="nDept" type="text" placeholder="例: 営業部">
           </div>
+          <div class="form-group">
+            <label>保有株数</label>
+            <input id="nShareCntP" type="number" placeholder="例: 10000">
+          </div>
+          <div class="form-group">
+            <label>持株比率 (%)</label>
+            <input id="nSharePctP" type="number" step="0.1" min="0" max="100" placeholder="例: 25.5">
+          </div>
         </div>
         <div class="field-group" id="fg-share">
           <div class="form-section">株主情報</div>
@@ -213,9 +221,10 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
             <option value="ownership">📊 株主関係（株主→会社）</option>
             <option value="group">🏢 グループ会社・親子関係</option>
             <option value="superior">⬆ 上司→部下</option>
+            <option value="employee">👔 社員</option>
             <option value="bank">🏦 銀行担当</option>
             <option value="keyman">⭐ キーマン</option>
-            <option value="opponent">✕ 反対者・対立</option>
+            <option value="opponent">⚡ 対立</option>
             <option value="family">👨‍👩‍👧 家族・親族</option>
             <option value="other">— その他</option>
           </select>
@@ -269,9 +278,11 @@ header{background:linear-gradient(135deg,#0a2a4a,#1a4a7a);color:white;padding:8p
       <span class="li-leg"><span style="color:#b36b00;font-weight:bold">━▶</span>&nbsp;株主関係</span>
       <span class="li-leg"><span style="color:#1a3a6a">┅┅</span>&nbsp;グループ</span>
       <span class="li-leg"><span style="color:#555">━▶</span>&nbsp;上司/部下</span>
+      <span class="li-leg"><span style="color:#28a745">━▶</span>&nbsp;社員</span>
       <span class="li-leg"><span style="color:#cc8800;font-weight:bold">━━</span>&nbsp;キーマン</span>
-      <span class="li-leg"><span style="color:#dc3545">╌╌</span>&nbsp;反対者</span>
+      <span class="li-leg"><span style="color:#dc3545">◀╌╌▶</span>&nbsp;対立</span>
       <span class="li-leg"><span style="color:#c06090">──</span>&nbsp;家族</span>
+      <span class="li-leg"><span style="color:#888">┄┄</span>&nbsp;その他</span>
     </div>
   </div>
 </div>
@@ -287,8 +298,8 @@ let editingEdgeId = null;
 // ===== Edge type label map =====
 const ET_LABELS = {
   ownership: '株主関係', group: 'グループ', superior: '上司→部下',
-  bank: '銀行担当', keyman: 'キーマン', opponent: '反対者',
-  family: '家族・親族', other: 'その他'
+  employee: '社員', bank: '銀行担当', keyman: 'キーマン',
+  opponent: '対立', family: '家族・親族', other: 'その他'
 };
 function edgeCyLabel(type, userLabel) {
   const base = ET_LABELS[type] || type;
@@ -348,6 +359,7 @@ function cyStyle() {
     edgeStyle('ownership', '#b36b00', 'solid', 'triangle', 2.5),
     edgeStyle('group', '#1a3a6a', 'dashed', 'none', 2),
     edgeStyle('superior', '#555555', 'solid', 'triangle', 1.5),
+    edgeStyle('employee', '#28a745', 'solid', 'triangle', 1.5),
     edgeStyle('bank', '#e07b00', 'dotted', 'none', 2),
     { selector: 'edge[type="keyman"]', style: {
       'line-color': '#cc8800', 'target-arrow-color': '#cc8800',
@@ -358,7 +370,8 @@ function cyStyle() {
     }},
     { selector: 'edge[type="opponent"]', style: {
       'line-color': '#dc3545', 'line-style': 'dashed', 'line-dash-pattern': [5, 4],
-      'target-arrow-color': '#dc3545', 'target-arrow-shape': 'tee',
+      'source-arrow-color': '#dc3545', 'source-arrow-shape': 'triangle',
+      'target-arrow-color': '#dc3545', 'target-arrow-shape': 'triangle',
       'curve-style': 'bezier', width: 2, label: 'data(label)',
       'font-size': '11px', color: '#dc3545',
       'text-background-color': 'white', 'text-background-opacity': 0.9, 'text-background-padding': '2px'
@@ -394,6 +407,9 @@ function onTypeChange() {
   document.getElementById('fg-share').className = 'field-group' + (t === 'shareholder' ? ' show' : '');
   document.getElementById('fg-bank').className = 'field-group' + (t !== 'company' ? ' show' : '');
 }
+
+function getShareCnt(n) { return n.type === 'person' ? (n.shareCntP || '') : (n.shareCnt || ''); }
+function getSharePct(n) { return n.type === 'person' ? (n.sharePctP || '') : (n.sharePct || ''); }
 onTypeChange();
 
 // ===== Add / Update Node =====
@@ -408,6 +424,7 @@ function addNode() {
     if (n) {
       n.type = type; n.name = name;
       n.role = v('nRole'); n.dept = v('nDept');
+      n.shareCntP = v('nShareCntP'); n.sharePctP = v('nSharePctP');
       n.shareCnt = v('nShareCnt'); n.sharePct = v('nSharePct');
       n.bankStaff = v('nBankStaff'); n.bankStr = v('nBankStr'); n.bankStat = v('nBankStat');
       n.notes = v('nNotes');
@@ -427,6 +444,7 @@ function addNode() {
   const n = {
     id, type, name,
     role: v('nRole'), dept: v('nDept'),
+    shareCntP: v('nShareCntP'), sharePctP: v('nSharePctP'),
     shareCnt: v('nShareCnt'), sharePct: v('nSharePct'),
     bankStaff: v('nBankStaff'), bankStr: v('nBankStr'), bankStat: v('nBankStat'),
     notes: v('nNotes'),
@@ -449,6 +467,8 @@ function editNode(id) {
   document.getElementById('nName').value = n.name;
   document.getElementById('nRole').value = n.role || '';
   document.getElementById('nDept').value = n.dept || '';
+  document.getElementById('nShareCntP').value = n.shareCntP || '';
+  document.getElementById('nSharePctP').value = n.sharePctP || '';
   document.getElementById('nShareCnt').value = n.shareCnt || '';
   document.getElementById('nSharePct').value = n.sharePct || '';
   document.getElementById('nBankStaff').value = n.bankStaff || '';
@@ -472,7 +492,13 @@ function cancelNodeEdit() {
 function v(id) { return document.getElementById(id).value.trim(); }
 
 function nodeLabel(n) {
-  if (n.type === 'person') return n.name + (n.role ? '\n' + n.role : '');
+  if (n.type === 'person') {
+    let s = n.name + (n.role ? '\n' + n.role : '');
+    const pct = n.sharePctP; const cnt = n.shareCntP;
+    if (pct) s += '\n' + pct + '%';
+    else if (cnt) s += '\n' + parseInt(cnt).toLocaleString() + '株';
+    return s;
+  }
   if (n.type === 'shareholder') return n.name + (n.sharePct ? '\n(' + n.sharePct + '%)' : '');
   return n.name;
 }
@@ -605,7 +631,7 @@ function renderLists() {
     </div>`;
   }).join('');
 
-  const etL = { ownership:'株主', group:'グループ', superior:'上司/部下', bank:'銀行担当', keyman:'キーマン', opponent:'反対者', family:'家族', other:'その他' };
+  const etL = { ownership:'株主関係', group:'グループ', superior:'上司→部下', employee:'社員', bank:'銀行担当', keyman:'キーマン', opponent:'対立', family:'家族', other:'その他' };
   document.getElementById('eCount').textContent = state.edges.length;
   document.getElementById('eList').innerHTML = state.edges.map(e => {
     const sn = (nameMap[e.src] || '?').substring(0, 8);
@@ -627,7 +653,7 @@ function refreshEdgeSels() {
 }
 
 function clearNForm() {
-  ['nName','nRole','nDept','nShareCnt','nSharePct','nBankStaff','nBankStat','nNotes'].forEach(id => document.getElementById(id).value = '');
+  ['nName','nRole','nDept','nShareCntP','nSharePctP','nShareCnt','nSharePct','nBankStaff','nBankStat','nNotes'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('nBankStr').value = '';
 }
 
@@ -723,20 +749,19 @@ function exportPDF() {
     ctx.fillStyle = '#1a3a6a';
     ctx.fillRect(0, 0, gW, HDR);
 
-    // ヘッダーテキスト
-    const fs = Math.round(HDR * 0.44);
+    // ヘッダーテキスト：「{法人名}ステークホルダー相関図」を中央に、日付を右寄せ
+    const fs = Math.round(HDR * 0.46);
     const y = HDR * 0.66;
     ctx.fillStyle = 'white';
-    ctx.font = `bold ${fs}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
-    ctx.fillText('佐賀銀行 ステークホルダー関係図', 24, y);
 
-    // 法人名（中央）
-    ctx.font = `bold ${Math.round(fs * 0.88)}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
-    const cnW = ctx.measureText(cn).width;
-    ctx.fillText(cn, (gW - cnW) / 2, y);
+    // タイトル（法人名 + ステークホルダー相関図）を中央配置
+    const title = (cn || '') + 'ステークホルダー相関図';
+    ctx.font = `bold ${fs}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
+    const titleW = ctx.measureText(title).width;
+    ctx.fillText(title, (gW - titleW) / 2, y);
 
     // 日付（右寄せ）
-    ctx.font = `${Math.round(fs * 0.75)}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
+    ctx.font = `${Math.round(fs * 0.72)}px Meiryo, "MS Gothic", "Yu Gothic", sans-serif`;
     const dW2 = ctx.measureText(dateStr).width;
     ctx.fillText(dateStr, gW - dW2 - 24, y);
 
